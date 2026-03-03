@@ -1,0 +1,443 @@
+version: "1.0.0"
+
+metadata:
+  name: provision-production-service
+  displayName: Provision Production Service
+  description: Provision a production-ready service with GitHub repository, CI/CD pipeline, Kubernetes namespace, and monitoring. Requires security team approval before execution.
+  author: shoehorn
+  icon: shield
+  category: infrastructure
+  tags:
+    - production
+    - infrastructure
+    - kubernetes
+    - ci-cd
+    - approval-required
+
+inputs:
+  type: object
+  required:
+    - name
+    - description
+    - owner
+    - team
+    - environment
+  properties:
+    name:
+      type: string
+      title: Service Name
+      description: Name of the production service
+      minLength: 1
+      maxLength: 100
+      pattern: "^[a-zA-Z0-9-]+$"
+      ui:options:
+        placeholder: payment-service
+    description:
+      type: string
+      title: Description
+      description: Brief description of the service
+      maxLength: 350
+      ui:options:
+        placeholder: Handles payment processing for checkout flow
+    owner:
+      type: string
+      title: GitHub Organization
+      description: GitHub organization to create the repository in
+      ui:options:
+        placeholder: my-org
+    team:
+      type: string
+      title: Owning Team
+      description: Team responsible for the service
+      ui:options:
+        placeholder: platform-team
+    environment:
+      type: string
+      title: Target Environment
+      description: Deployment environment
+      enum:
+        - staging
+        - production
+    goVersion:
+      type: string
+      title: Go Version
+      description: Go version for the service
+      enum:
+        - "1.23"
+        - "1.24"
+        - "1.25"
+    replicas:
+      type: integer
+      title: Replica Count
+      description: Number of pod replicas
+      minimum: 1
+      maximum: 10
+    enableMonitoring:
+      type: boolean
+      title: Enable Monitoring
+      description: Set up Prometheus metrics and Grafana dashboard
+    private:
+      type: boolean
+      title: Private Repository
+      description: Whether the repository should be private
+
+defaults:
+  goVersion: "1.24"
+  replicas: 2
+  enableMonitoring: true
+  private: true
+  environment: production
+
+approval:
+  required: true
+  policy:
+    name: production-deployment-approval
+    steps:
+      - name: Security Review
+        approvers:
+          - security-team
+        required_count: 1
+        description: Security team must approve production infrastructure provisioning
+      - name: Platform Review
+        approvers:
+          - platform-team
+        required_count: 1
+        description: Platform team must approve Kubernetes resource allocation
+
+actions:
+  - action: provision.production.service
+    label: Provision Production Service
+    description: Create a fully provisioned production service with all infrastructure
+    primary: true
+
+steps:
+  - id: create-repo
+    name: Create GitHub repository
+    action: github.repo.create
+    inputs:
+      owner: "${{ parameters.owner }}"
+      name: "${{ parameters.name }}"
+      description: "${{ parameters.description }}"
+      private: "${{ parameters.private }}"
+
+  - id: add-readme
+    name: Add README.md
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: README.md
+      content: |
+        # ${{ parameters.name }}
+
+        ${{ parameters.description }}
+
+        **Team**: ${{ parameters.team }}
+        **Environment**: ${{ parameters.environment }}
+
+        ## Architecture
+
+        - **Language**: Go ${{ parameters.goVersion }}
+        - **Replicas**: ${{ parameters.replicas }}
+        - **Monitoring**: Enabled
+
+        ## Development
+
+        ```bash
+        make build
+        make test
+        make docker-build
+        ```
+
+        ## Deployment
+
+        Deployed via CI/CD pipeline to Kubernetes.
+
+        ```bash
+        # Manual deploy (emergency only)
+        kubectl apply -k deploy/overlays/${{ parameters.environment }}
+        ```
+
+  - id: add-main
+    name: Add main.go
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: main.go
+      content: |
+        package main
+
+        import (
+        	"encoding/json"
+        	"log"
+        	"net/http"
+        	"os"
+        )
+
+        func main() {
+        	port := os.Getenv("PORT")
+        	if port == "" {
+        		port = "8080"
+        	}
+
+        	mux := http.NewServeMux()
+        	mux.HandleFunc("/health", healthHandler)
+        	mux.HandleFunc("/ready", readyHandler)
+        	mux.HandleFunc("/metrics", metricsHandler)
+        	mux.HandleFunc("/", rootHandler)
+
+        	log.Printf("Starting ${{ parameters.name }} on :%s", port)
+        	if err := http.ListenAndServe(":"+port, mux); err != nil {
+        		log.Fatalf("Server failed: %v", err)
+        	}
+        }
+
+        func healthHandler(w http.ResponseWriter, r *http.Request) {
+        	w.Header().Set("Content-Type", "application/json")
+        	json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
+        }
+
+        func readyHandler(w http.ResponseWriter, r *http.Request) {
+        	w.Header().Set("Content-Type", "application/json")
+        	json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
+        }
+
+        func metricsHandler(w http.ResponseWriter, r *http.Request) {
+        	w.Header().Set("Content-Type", "text/plain")
+        	w.Write([]byte("# HELP requests_total Total requests\n"))
+        }
+
+        func rootHandler(w http.ResponseWriter, r *http.Request) {
+        	w.Header().Set("Content-Type", "application/json")
+        	json.NewEncoder(w).Encode(map[string]string{
+        		"service": "${{ parameters.name }}",
+        		"version": "0.1.0",
+        	})
+        }
+
+  - id: add-gomod
+    name: Add go.mod
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: go.mod
+      content: |
+        module github.com/${{ parameters.owner }}/${{ parameters.name }}
+
+        go ${{ parameters.goVersion }}
+
+  - id: add-dockerfile
+    name: Add Dockerfile
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: Dockerfile
+      content: |
+        FROM golang:${{ parameters.goVersion }}-alpine AS builder
+
+        WORKDIR /app
+        COPY go.mod go.sum ./
+        RUN go mod download
+        COPY . .
+        RUN CGO_ENABLED=0 GOOS=linux go build -o /app/${{ parameters.name }} .
+
+        FROM alpine:3.19
+        RUN apk --no-cache add ca-certificates
+        WORKDIR /app
+        COPY --from=builder /app/${{ parameters.name }} .
+
+        EXPOSE 8080
+        USER nobody:nobody
+        ENTRYPOINT ["./${{ parameters.name }}"]
+
+  - id: add-k8s-deployment
+    name: Add Kubernetes deployment manifest
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: deploy/base/deployment.yaml
+      content: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${{ parameters.name }}
+          labels:
+            app: ${{ parameters.name }}
+            team: ${{ parameters.team }}
+        spec:
+          replicas: ${{ parameters.replicas }}
+          selector:
+            matchLabels:
+              app: ${{ parameters.name }}
+          template:
+            metadata:
+              labels:
+                app: ${{ parameters.name }}
+                team: ${{ parameters.team }}
+              annotations:
+                shoehorn.dev/entity: ${{ parameters.name }}
+            spec:
+              containers:
+                - name: ${{ parameters.name }}
+                  image: ghcr.io/${{ parameters.owner }}/${{ parameters.name }}:latest
+                  ports:
+                    - containerPort: 8080
+                      name: http
+                  livenessProbe:
+                    httpGet:
+                      path: /health
+                      port: http
+                    initialDelaySeconds: 5
+                    periodSeconds: 10
+                  readinessProbe:
+                    httpGet:
+                      path: /ready
+                      port: http
+                    initialDelaySeconds: 3
+                    periodSeconds: 5
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+                    limits:
+                      cpu: 500m
+                      memory: 256Mi
+
+  - id: add-k8s-service
+    name: Add Kubernetes service manifest
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: deploy/base/service.yaml
+      content: |
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${{ parameters.name }}
+          labels:
+            app: ${{ parameters.name }}
+        spec:
+          selector:
+            app: ${{ parameters.name }}
+          ports:
+            - port: 80
+              targetPort: http
+              protocol: TCP
+              name: http
+          type: ClusterIP
+
+  - id: add-ci-pipeline
+    name: Add GitHub Actions CI pipeline
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: .github/workflows/ci.yaml
+      content: |
+        name: CI
+
+        on:
+          push:
+            branches: [main]
+          pull_request:
+            branches: [main]
+
+        jobs:
+          test:
+            runs-on: ubuntu-latest
+            steps:
+              - uses: actions/checkout@v4
+              - uses: actions/setup-go@v5
+                with:
+                  go-version: "${{ parameters.goVersion }}"
+              - run: go test ./... -v -cover -race
+
+          build:
+            runs-on: ubuntu-latest
+            needs: test
+            if: github.ref == 'refs/heads/main'
+            permissions:
+              contents: read
+              packages: write
+            steps:
+              - uses: actions/checkout@v4
+              - uses: docker/login-action@v3
+                with:
+                  registry: ghcr.io
+                  username: ${{ '{{' }} github.actor {{ '}}' }}
+                  password: ${{ '{{' }} secrets.GITHUB_TOKEN {{ '}}' }}
+              - uses: docker/build-push-action@v5
+                with:
+                  push: true
+                  tags: ghcr.io/${{ parameters.owner }}/${{ parameters.name }}:latest
+
+  - id: add-gitignore
+    name: Add .gitignore
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: .gitignore
+      content: |
+        # Binaries
+        ${{ parameters.name }}
+        *.exe
+        *.dll
+        *.so
+        *.dylib
+
+        # Test
+        *.test
+        *.out
+        coverage.html
+
+        # IDE
+        .idea/
+        .vscode/
+        *.swp
+        *.swo
+
+        # OS
+        .DS_Store
+        Thumbs.db
+
+  - id: set-topics
+    name: Set repository topics
+    action: github.topics.set
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      topics:
+        - golang
+        - production
+        - kubernetes
+        - microservice
+        - shoehorn
+
+output:
+  links:
+    - title: View Repository
+      url: "${{ steps.create-repo.output.html_url }}"

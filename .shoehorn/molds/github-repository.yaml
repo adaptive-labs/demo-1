@@ -1,0 +1,83 @@
+version: "1.0.0"
+
+metadata:
+  name: github-repository
+  displayName: GitHub Repository
+  description: Create a new GitHub repository with standard configuration including branch protection and team access.
+  author: shoehorn
+  icon: github
+  category: repository
+  tags:
+    - github
+    - repository
+    - getting-started
+
+inputs:
+  type: object
+  required:
+    - name
+    - owner
+  properties:
+    name:
+      type: string
+      title: Repository Name
+      description: Name for the new GitHub repository
+      minLength: 1
+      maxLength: 100
+      pattern: "^[a-zA-Z0-9._-]+$"
+      ui:options:
+        placeholder: my-new-repo
+    description:
+      type: string
+      title: Description
+      description: Brief description of the repository
+      maxLength: 350
+      ui:options:
+        placeholder: A short description of your project
+    owner:
+      type: string
+      title: Organization / Owner
+      description: GitHub organization or user that owns the repository
+      ui:options:
+        placeholder: my-org
+    private:
+      type: boolean
+      title: Private Repository
+      description: Whether the repository should be private
+    visibility:
+      type: string
+      title: Visibility
+      description: Repository visibility setting
+      enum:
+        - private
+        - internal
+        - public
+      x-dependency:
+        condition: "private == false"
+
+defaults:
+  private: true
+  visibility: private
+
+actions:
+  - action: github.repo.create
+    label: Create Repository
+    description: Create a new GitHub repository with the specified settings
+    primary: true
+
+steps:
+  - id: create-repo
+    name: Create GitHub repository
+    action: github.repo.create
+    inputs:
+      owner: "${{ parameters.owner }}"
+      name: "${{ parameters.name }}"
+      description: "${{ parameters.description }}"
+      private: "${{ parameters.private }}"
+    outputs:
+      repoUrl: "${{ steps.create-repo.output.html_url }}"
+
+output:
+  links:
+    - title: View Repository
+      url: "${{ steps.create-repo.output.html_url }}"

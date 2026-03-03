@@ -1,0 +1,296 @@
+version: "1.0.0"
+
+metadata:
+  name: scaffold-go-service
+  displayName: Scaffold Go HTTP Service
+  description: Create a GitHub repository with a Go HTTP service scaffold including main.go with HTTP server, Dockerfile, go.mod, Makefile, and .gitignore.
+  author: shoehorn
+  icon: server
+  category: service
+  tags:
+    - golang
+    - http
+    - scaffold
+    - microservice
+
+inputs:
+  type: object
+  required:
+    - name
+    - description
+    - owner
+  properties:
+    name:
+      type: string
+      title: Service Name
+      description: Name of the Go HTTP service
+      minLength: 1
+      maxLength: 100
+      pattern: "^[a-zA-Z0-9._-]+$"
+      ui:options:
+        placeholder: my-http-service
+    description:
+      type: string
+      title: Description
+      description: Brief description of what the service does
+      ui:options:
+        placeholder: A microservice for managing widgets
+    owner:
+      type: string
+      title: GitHub Organization
+      description: GitHub organization to create the repository in
+      ui:options:
+        placeholder: my-org
+    goVersion:
+      type: string
+      title: Go Version
+      description: Go version to use in go.mod
+      enum:
+        - "1.23"
+        - "1.24"
+        - "1.25"
+    port:
+      type: string
+      title: HTTP Port
+      description: Port the service listens on
+      pattern: "^[0-9]+$"
+    private:
+      type: boolean
+      title: Private Repository
+      description: Whether the repository should be private
+
+defaults:
+  goVersion: "1.23"
+  port: "8080"
+  private: true
+
+actions:
+  - action: scaffold.go.service
+    label: Scaffold Go Service
+    description: Create a new Go HTTP service with standard project structure
+    primary: true
+
+steps:
+  - id: create-repo
+    name: Create GitHub repository
+    action: github.repo.create
+    inputs:
+      owner: "${{ parameters.owner }}"
+      name: "${{ parameters.name }}"
+      description: "${{ parameters.description }}"
+      private: "${{ parameters.private }}"
+
+  - id: add-readme
+    name: Add README.md
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: README.md
+      content: |
+        # ${{ parameters.name }}
+
+        ${{ parameters.description }}
+
+        ## Getting Started
+
+        ```bash
+        go build -o ${{ parameters.name }} .
+        ./${{ parameters.name }}
+        ```
+
+        The service will start on port ${{ parameters.port }}.
+
+        ## Development
+
+        ```bash
+        make build
+        make test
+        make lint
+        make docker-build
+        ```
+
+        ## Docker
+
+        ```bash
+        docker build -t ${{ parameters.name }} .
+        docker run -p ${{ parameters.port }}:${{ parameters.port }} ${{ parameters.name }}
+        ```
+
+  - id: add-main
+    name: Add main.go
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: main.go
+      content: |
+        package main
+
+        import (
+        	"encoding/json"
+        	"log"
+        	"net/http"
+        	"os"
+        )
+
+        func main() {
+        	port := os.Getenv("PORT")
+        	if port == "" {
+        		port = "${{ parameters.port }}"
+        	}
+
+        	mux := http.NewServeMux()
+        	mux.HandleFunc("/health", healthHandler)
+        	mux.HandleFunc("/", rootHandler)
+
+        	log.Printf("Starting ${{ parameters.name }} on :%s", port)
+        	if err := http.ListenAndServe(":"+port, mux); err != nil {
+        		log.Fatalf("Server failed: %v", err)
+        	}
+        }
+
+        func healthHandler(w http.ResponseWriter, r *http.Request) {
+        	w.Header().Set("Content-Type", "application/json")
+        	json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
+        }
+
+        func rootHandler(w http.ResponseWriter, r *http.Request) {
+        	w.Header().Set("Content-Type", "application/json")
+        	json.NewEncoder(w).Encode(map[string]string{
+        		"service": "${{ parameters.name }}",
+        		"version": "0.1.0",
+        	})
+        }
+
+  - id: add-gomod
+    name: Add go.mod
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: go.mod
+      content: |
+        module github.com/${{ parameters.owner }}/${{ parameters.name }}
+
+        go ${{ parameters.goVersion }}
+
+  - id: add-dockerfile
+    name: Add Dockerfile
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: Dockerfile
+      content: |
+        FROM golang:${{ parameters.goVersion }}-alpine AS builder
+
+        WORKDIR /app
+        COPY go.mod ./
+        RUN go mod download
+        COPY . .
+        RUN CGO_ENABLED=0 GOOS=linux go build -o /app/${{ parameters.name }} .
+
+        FROM alpine:3.19
+        RUN apk --no-cache add ca-certificates
+        WORKDIR /app
+        COPY --from=builder /app/${{ parameters.name }} .
+
+        EXPOSE ${{ parameters.port }}
+        ENTRYPOINT ["./${{ parameters.name }}"]
+
+  - id: add-makefile
+    name: Add Makefile
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: Makefile
+      content: |
+        .PHONY: build test lint clean docker-build docker-run
+
+        APP_NAME := ${{ parameters.name }}
+        PORT := ${{ parameters.port }}
+
+        build:
+        	go build -o $(APP_NAME) .
+
+        test:
+        	go test ./... -v -cover
+
+        lint:
+        	go vet ./...
+        	golangci-lint run
+
+        clean:
+        	rm -f $(APP_NAME)
+
+        docker-build:
+        	docker build -t $(APP_NAME) .
+
+        docker-run:
+        	docker run -p $(PORT):$(PORT) $(APP_NAME)
+
+  - id: add-gitignore
+    name: Add .gitignore
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: .gitignore
+      content: |
+        # Binaries
+        ${{ parameters.name }}
+        *.exe
+        *.dll
+        *.so
+        *.dylib
+
+        # Test
+        *.test
+        *.out
+        coverage.html
+
+        # IDE
+        .idea/
+        .vscode/
+        *.swp
+        *.swo
+
+        # OS
+        .DS_Store
+        Thumbs.db
+
+        # Docker
+        .docker/
+
+  - id: set-topics
+    name: Set repository topics
+    action: github.topics.set
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      topics:
+        - golang
+        - http-service
+        - microservice
+        - shoehorn
+
+output:
+  links:
+    - title: View Repository
+      url: "${{ steps.create-repo.output.html_url }}"

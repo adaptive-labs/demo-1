@@ -1,0 +1,216 @@
+version: "1.0.0"
+
+metadata:
+  name: scaffold-go-app
+  displayName: Scaffold Go CLI App
+  description: Create a GitHub repository with a Go CLI application scaffold including main.go, go.mod, Makefile, and .gitignore.
+  author: shoehorn
+  icon: code
+  category: service
+  tags:
+    - golang
+    - cli
+    - scaffold
+
+inputs:
+  type: object
+  required:
+    - name
+    - description
+    - owner
+  properties:
+    name:
+      type: string
+      title: Application Name
+      description: Name of the Go CLI application
+      minLength: 1
+      maxLength: 100
+      pattern: "^[a-zA-Z0-9._-]+$"
+      ui:options:
+        placeholder: my-cli-app
+    description:
+      type: string
+      title: Description
+      description: Brief description of what the CLI does
+      ui:options:
+        placeholder: A CLI tool for managing widgets
+    owner:
+      type: string
+      title: GitHub Organization
+      description: GitHub organization to create the repository in
+      ui:options:
+        placeholder: my-org
+    goVersion:
+      type: string
+      title: Go Version
+      description: Go version to use in go.mod
+      enum:
+        - "1.23"
+        - "1.24"
+        - "1.25"
+    private:
+      type: boolean
+      title: Private Repository
+      description: Whether the repository should be private
+
+defaults:
+  goVersion: "1.23"
+  private: true
+
+actions:
+  - action: scaffold.go.cli
+    label: Scaffold Go CLI
+    description: Create a new Go CLI application with standard project structure
+    primary: true
+
+steps:
+  - id: create-repo
+    name: Create GitHub repository
+    action: github.repo.create
+    inputs:
+      owner: "${{ parameters.owner }}"
+      name: "${{ parameters.name }}"
+      description: "${{ parameters.description }}"
+      private: "${{ parameters.private }}"
+
+  - id: add-readme
+    name: Add README.md
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: README.md
+      content: |
+        # ${{ parameters.name }}
+
+        ${{ parameters.description }}
+
+        ## Getting Started
+
+        ```bash
+        go build -o ${{ parameters.name }} .
+        ./${{ parameters.name }}
+        ```
+
+        ## Development
+
+        ```bash
+        make build
+        make test
+        make lint
+        ```
+
+  - id: add-main
+    name: Add main.go
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: main.go
+      content: |
+        package main
+
+        import (
+        	"fmt"
+        	"os"
+        )
+
+        func main() {
+        	fmt.Println("Hello from ${{ parameters.name }}!")
+        	os.Exit(0)
+        }
+
+  - id: add-gomod
+    name: Add go.mod
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: go.mod
+      content: |
+        module github.com/${{ parameters.owner }}/${{ parameters.name }}
+
+        go ${{ parameters.goVersion }}
+
+  - id: add-makefile
+    name: Add Makefile
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: Makefile
+      content: |
+        .PHONY: build test lint clean
+
+        APP_NAME := ${{ parameters.name }}
+
+        build:
+        	go build -o $(APP_NAME) .
+
+        test:
+        	go test ./... -v -cover
+
+        lint:
+        	go vet ./...
+        	golangci-lint run
+
+        clean:
+        	rm -f $(APP_NAME)
+
+  - id: add-gitignore
+    name: Add .gitignore
+    action: github.file.create
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      path: .gitignore
+      content: |
+        # Binaries
+        ${{ parameters.name }}
+        *.exe
+        *.dll
+        *.so
+        *.dylib
+
+        # Test
+        *.test
+        *.out
+        coverage.html
+
+        # IDE
+        .idea/
+        .vscode/
+        *.swp
+        *.swo
+
+        # OS
+        .DS_Store
+        Thumbs.db
+
+  - id: set-topics
+    name: Set repository topics
+    action: github.topics.set
+    depends_on:
+      - create-repo
+    inputs:
+      owner: "${{ parameters.owner }}"
+      repo: "${{ parameters.name }}"
+      topics:
+        - golang
+        - cli
+        - shoehorn
+
+output:
+  links:
+    - title: View Repository
+      url: "${{ steps.create-repo.output.html_url }}"
