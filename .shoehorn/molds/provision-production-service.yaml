@@ -95,12 +95,12 @@ approvalFlow:
     - name: Security Review
       description: Security team must approve production infrastructure provisioning
       approvers:
-        - security-team
+        - admin@shoehorn.dev
       required_count: 1
     - name: Platform Review
       description: Platform team must approve Kubernetes resource allocation
       approvers:
-        - platform-team
+        - admin@shoehorn.dev
       required_count: 1
 
 actions:
