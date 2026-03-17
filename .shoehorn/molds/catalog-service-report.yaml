@@ -1,0 +1,53 @@
+version: "2.0"
+
+metadata:
+  name: catalog-service-report
+  displayName: Service Catalog Report
+  description: Fetch entities from the catalog and generate a summary report
+  author: shoehorn
+  icon: list
+  category: catalog
+  tags:
+    - catalog
+    - report
+    - entities
+
+inputs:
+  type: object
+  required: []
+  properties:
+    entity_type:
+      type: string
+      title: Entity Type
+      description: Type of entity to fetch (e.g., service, component, library)
+      default: service
+    lifecycle:
+      type: string
+      title: Lifecycle Filter
+      description: Filter by lifecycle stage (leave empty for all)
+      default: ""
+
+steps:
+  - id: fetch-entities
+    name: Fetch Catalog Entities
+    adapter: catalog
+    config:
+      operation: list_entities
+      filters:
+        type: "{{ .inputs.entity_type }}"
+        lifecycle: "{{ .inputs.lifecycle }}"
+        limit: 100
+
+  - id: report
+    name: Log Summary
+    adapter: log
+    depends_on:
+      - fetch-entities
+    config:
+      message: "Catalog report: found {{ .steps.fetch-entities.outputs.total }} entities of type '{{ .inputs.entity_type }}'"
+
+outputs:
+  total:
+    value: "{{ .steps.fetch-entities.outputs.total }}"
+  entities:
+    value: "{{ .steps.fetch-entities.outputs.entities }}"

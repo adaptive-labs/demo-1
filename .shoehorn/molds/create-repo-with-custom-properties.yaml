@@ -1,0 +1,104 @@
+version: "1.0.0"
+
+metadata:
+  name: create-repo-with-custom-properties
+  displayName: Create Repo with Custom Properties
+  description: Creates a GitHub repository with topics, license, and a README file
+  author: shoehorn
+  icon: settings
+  category: repository
+  tags:
+    - github
+    - repository
+    - advanced
+
+inputs:
+  type: object
+  required:
+    - name
+    - owner
+  properties:
+    name:
+      type: string
+      title: Repository Name
+      description: Name of the GitHub repository to create
+    owner:
+      type: string
+      title: Owner
+      description: GitHub organization or user
+    language:
+      type: string
+      title: Language
+      description: Primary programming language
+      enum:
+        - go
+        - typescript
+        - python
+        - rust
+        - java
+      default: go
+    topics:
+      type: string
+      title: Topics
+      description: Comma-separated list of repository topics
+      default: "shoehorn,internal"
+    license:
+      type: string
+      title: License
+      description: License template to use
+      enum:
+        - mit
+        - apache-2.0
+        - gpl-3.0
+        - none
+      default: mit
+    private:
+      type: boolean
+      title: Private Repository
+      default: true
+
+steps:
+  - id: create-repo
+    name: Create GitHub Repository
+    action: github.repo.create
+    inputs:
+      name: "${{ inputs.name }}"
+      owner: "${{ inputs.owner }}"
+      private: "${{ inputs.private }}"
+      description: "A ${{ inputs.language }} project created by Shoehorn Forge"
+      auto_init: true
+      license_template: "${{ inputs.license }}"
+
+  - id: set-topics
+    name: Set Repository Topics
+    action: github.topics.set
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
+      topics: "${{ inputs.topics }}"
+
+  - id: create-readme
+    name: Create README
+    action: github.file.create
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
+      path: "README.md"
+      message: "docs: add project README"
+      content: |
+        # ${{ inputs.name }}
+
+        A ${{ inputs.language }} project managed by Shoehorn.
+
+        ## Getting Started
+
+        TODO: Add setup instructions.
+
+        ## License
+
+        ${{ inputs.license }}
+
+output:
+  links:
+    - title: Repository
+      url: "${{ steps.create-repo.output.html_url }}"

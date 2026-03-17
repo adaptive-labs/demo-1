@@ -1,0 +1,74 @@
+version: "2.0"
+
+metadata:
+  name: create-repo-for-team
+  displayName: Create Repository for Team
+  description: Fetch team details from the catalog and create a GitHub repository with team context
+  author: shoehorn
+  icon: users
+  category: repository
+  tags:
+    - github
+    - teams
+    - catalog
+    - multi-adapter
+
+inputs:
+  type: object
+  required:
+    - team_id
+    - repo_name
+    - owner
+  properties:
+    team_id:
+      type: string
+      title: Team ID or Slug
+      description: The team identifier to look up in the catalog
+    repo_name:
+      type: string
+      title: Repository Name
+      description: Name of the GitHub repository to create
+    owner:
+      type: string
+      title: GitHub Owner
+      description: GitHub organization to create the repo in
+
+steps:
+  - id: fetch-team
+    name: Fetch Team Details
+    adapter: catalog
+    config:
+      operation: get_team
+      id: "{{ .inputs.team_id }}"
+
+  - id: create-repo
+    name: Create GitHub Repository
+    adapter: http
+    depends_on:
+      - fetch-team
+    condition: "{{ ne .steps.fetch-team.outputs.team nil }}"
+    config:
+      url: "https://api.github.com/orgs/{{ .inputs.owner }}/repos"
+      method: POST
+      headers:
+        Accept: "application/vnd.github+json"
+        Authorization: "Bearer {{ .secrets.GITHUB_TOKEN }}"
+      body:
+        name: "{{ .inputs.repo_name }}"
+        description: "Repository for team {{ .inputs.team_id }} - managed by Shoehorn Forge"
+        private: true
+        auto_init: true
+
+  - id: summary
+    name: Log Summary
+    adapter: log
+    depends_on:
+      - create-repo
+    config:
+      message: "Created repository {{ .inputs.repo_name }} for team {{ .inputs.team_id }}"
+
+outputs:
+  team:
+    value: "{{ .steps.fetch-team.outputs.team }}"
+  repo:
+    value: "{{ .steps.create-repo.outputs.body }}"

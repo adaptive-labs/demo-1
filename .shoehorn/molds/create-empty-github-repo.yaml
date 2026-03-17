@@ -1,0 +1,48 @@
+version: "1.0.0"
+
+metadata:
+  name: create-empty-github-repo
+  displayName: Create Empty GitHub Repo
+  description: Creates a new empty GitHub repository with minimal configuration
+  author: shoehorn
+  icon: git-branch
+  category: repository
+  tags:
+    - github
+    - repository
+    - starter
+
+inputs:
+  type: object
+  required:
+    - name
+    - owner
+  properties:
+    name:
+      type: string
+      title: Repository Name
+      description: Name of the GitHub repository to create
+    owner:
+      type: string
+      title: Owner
+      description: GitHub organization or user
+    private:
+      type: boolean
+      title: Private Repository
+      description: Whether the repository should be private
+      default: true
+
+steps:
+  - id: create-repo
+    name: Create GitHub Repository
+    action: github.repo.create
+    inputs:
+      name: "${{ inputs.name }}"
+      owner: "${{ inputs.owner }}"
+      private: "${{ inputs.private }}"
+      description: "Created by Shoehorn Forge"
+
+output:
+  links:
+    - title: Repository
+      url: "${{ steps.create-repo.output.html_url }}"
