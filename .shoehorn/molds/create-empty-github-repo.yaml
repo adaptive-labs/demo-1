@@ -36,6 +36,11 @@ inputs:
       title: Repository Description
       description: Description for the GitHub repository
       default: "Created by Shoehorn Forge"
+    auto_init:
+      type: boolean
+      title: Initialize with README
+      description: Whether to initialize the repository with a README file
+      default: false
 
 actions:
   - action: github.repo.create
@@ -52,6 +57,7 @@ steps:
       owner: "${{ inputs.owner }}"
       private: "${{ inputs.private }}"
       description: "${{ inputs.description }}"
+      auto_init: "${{ inputs.auto_init }}"
 
 output:
   links:
