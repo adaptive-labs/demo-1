@@ -27,6 +27,12 @@ inputs:
       description: Filter by lifecycle stage (leave empty for all)
       default: ""
 
+actions:
+  - action: catalog.service.report
+    label: Generate Service Report
+    description: Fetches entities from the catalog and generates a summary report
+    primary: true
+
 steps:
   - id: fetch-entities
     name: Fetch Catalog Entities

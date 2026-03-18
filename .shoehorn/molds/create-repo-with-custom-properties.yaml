@@ -57,6 +57,12 @@ inputs:
       title: Private Repository
       default: true
 
+actions:
+  - action: github.repo.create
+    label: Create Repository with Properties
+    description: Creates a GitHub repository with topics, license, and a README file
+    primary: true
+
 steps:
   - id: create-repo
     name: Create GitHub Repository

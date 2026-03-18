@@ -37,6 +37,12 @@ inputs:
       description: Description for the GitHub repository
       default: "Created by Shoehorn Forge"
 
+actions:
+  - action: github.repo.create
+    label: Create Repository
+    description: Creates a new empty GitHub repository with minimal configuration
+    primary: true
+
 steps:
   - id: create-repo
     name: Create GitHub Repository

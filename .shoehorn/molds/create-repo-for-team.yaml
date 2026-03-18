@@ -33,6 +33,12 @@ inputs:
       title: GitHub Owner
       description: GitHub organization to create the repo in
 
+actions:
+  - action: repo.create.team
+    label: Create Team Repository
+    description: Fetches team details and creates a GitHub repository with team context
+    primary: true
+
 steps:
   - id: fetch-team
     name: Fetch Team Details
