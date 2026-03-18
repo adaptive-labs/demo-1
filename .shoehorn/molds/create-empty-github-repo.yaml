@@ -31,6 +31,11 @@ inputs:
       title: Private Repository
       description: Whether the repository should be private
       default: true
+    description:
+      type: string
+      title: Repository Description
+      description: Description for the GitHub repository
+      default: "Created by Shoehorn Forge"
 
 steps:
   - id: create-repo
@@ -40,7 +45,7 @@ steps:
       name: "${{ inputs.name }}"
       owner: "${{ inputs.owner }}"
       private: "${{ inputs.private }}"
-      description: "Created by Shoehorn Forge"
+      description: "${{ inputs.description }}"
 
 output:
   links:
