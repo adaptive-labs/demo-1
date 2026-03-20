@@ -74,6 +74,15 @@ inputs:
       type: boolean
       title: Allow rebase merge
       default: false
+    team_slug:
+      type: string
+      title: Team
+      description: GitHub team slug to grant push access (optional)
+    register_in_catalog:
+      type: boolean
+      title: Register in catalog
+      description: Create an entity in the Shoehorn catalog for this repository
+      default: true
 
 actions:
   - action: github.repo.create
@@ -128,6 +137,35 @@ steps:
         ## License
 
         ${{ inputs.license }}
+
+  - id: add-team
+    name: Add team to repository
+    action: github.team.add
+    if: "${{ inputs.team_slug }}"
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
+      team_slug: "${{ inputs.team_slug }}"
+      permission: push
+
+  - id: register-entity
+    name: Register in Shoehorn catalog
+    if: "${{ inputs.register_in_catalog }}"
+    action: catalog.entity.register
+    inputs:
+      service_id: "${{ inputs.name }}"
+      name: "${{ inputs.name }}"
+      type: service
+      description: "A ${{ inputs.language }} project created by Shoehorn Forge"
+      lifecycle: experimental
+      owner: "${{ inputs.team_slug }}"
+      tags:
+        - "${{ inputs.language }}"
+        - shoehorn-managed
+      links:
+        - name: GitHub
+          url: "${{ steps.create-repo.output.html_url }}"
+          icon: GitHub
 
 output:
   links:
