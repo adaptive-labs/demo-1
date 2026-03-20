@@ -3,13 +3,14 @@ version: "1.0.0"
 metadata:
   name: create-repo-with-custom-properties
   displayName: Create Repo with Custom Properties
-  description: Creates a GitHub repository with topics, license, and a README file
+  description: Creates a GitHub repository with custom properties, topics, license, merge settings, and a README
   author: shoehorn
   icon: settings
   category: repository
   tags:
     - github
     - repository
+    - custom-properties
     - advanced
 
 inputs:
@@ -56,11 +57,28 @@ inputs:
       type: boolean
       title: Private Repository
       default: true
+    delete_branch_on_merge:
+      type: boolean
+      title: Delete branch on merge
+      description: Automatically delete head branches after PR merge
+      default: true
+    allow_squash_merge:
+      type: boolean
+      title: Allow squash merge
+      default: true
+    allow_merge_commit:
+      type: boolean
+      title: Allow merge commit
+      default: true
+    allow_rebase_merge:
+      type: boolean
+      title: Allow rebase merge
+      default: false
 
 actions:
   - action: github.repo.create
     label: Create Repository with Properties
-    description: Creates a GitHub repository with topics, license, and a README file
+    description: Creates a GitHub repository with custom properties, merge settings, topics, and a README
     primary: true
 
 steps:
@@ -74,6 +92,13 @@ steps:
       description: "A ${{ inputs.language }} project created by Shoehorn Forge"
       auto_init: true
       license_template: "${{ inputs.license }}"
+      delete_branch_on_merge: "${{ inputs.delete_branch_on_merge }}"
+      allow_squash_merge: "${{ inputs.allow_squash_merge }}"
+      allow_merge_commit: "${{ inputs.allow_merge_commit }}"
+      allow_rebase_merge: "${{ inputs.allow_rebase_merge }}"
+      custom_properties:
+        created-by: "${{ context.createdBy }}"
+        language: "${{ inputs.language }}"
 
   - id: set-topics
     name: Set Repository Topics
