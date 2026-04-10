@@ -77,6 +77,7 @@ inputs:
       x-dependency:
         condition: registerCatalog == true
       ui:options:
+        source: catalog:teams
         placeholder: platform-team
 
 defaults:
