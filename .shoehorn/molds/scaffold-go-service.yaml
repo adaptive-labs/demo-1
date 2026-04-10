@@ -1,4 +1,4 @@
-version: "1.0.0"
+version: "1.0.1"
 
 metadata:
   name: scaffold-go-service-test-v1
@@ -102,7 +102,7 @@ steps:
       owner: "${{ inputs.owner }}"
       description: "${{ inputs.description }}"
       private: "${{ inputs.private }}"
-      auto_init: false
+      auto_init: true
       delete_branch_on_merge: true
       allow_squash_merge: true
       allow_merge_commit: false
