@@ -1,138 +1,130 @@
 version: "1.0.0"
 
 metadata:
-  name: scaffold-go-service
-  displayName: Scaffold Go HTTP Service
-  description: Create a GitHub repository with a Go HTTP service scaffold including main.go with HTTP server, Dockerfile, go.mod, Makefile, and .gitignore.
+  name: scaffold-go-service-test-v1
+  displayName: Scaffold Go Service Test V1
+  description: Create a GitHub repository with a Go HTTP service, Dockerfile, CI pipeline, and optional catalog registration
   author: shoehorn
   icon: server
   category: service
   tags:
     - golang
     - http
-    - scaffold
     - microservice
+    - docker
 
 inputs:
   type: object
   required:
     - name
-    - description
     - owner
   properties:
     name:
       type: string
       title: Service Name
-      description: Name of the Go HTTP service
-      minLength: 1
-      maxLength: 100
-      pattern: "^[a-zA-Z0-9._-]+$"
+      description: Lowercase with hyphens, used as repo name and service ID
+      pattern: "^[a-z][a-z0-9-]*$"
+      minLength: 2
+      maxLength: 63
       ui:options:
-        placeholder: my-http-service
-    description:
-      type: string
-      title: Description
-      description: Brief description of what the service does
-      ui:options:
-        placeholder: A microservice for managing widgets
+        placeholder: my-service
+
     owner:
       type: string
       title: GitHub Organization
-      description: GitHub organization to create the repository in
+      description: GitHub org where the repo will be created
+
+    description:
+      type: string
+      title: Description
+      description: Short description of the service
       ui:options:
-        placeholder: my-org
+        placeholder: A Go HTTP service that...
+
     goVersion:
       type: string
       title: Go Version
-      description: Go version to use in go.mod
       enum:
         - "1.23"
         - "1.24"
         - "1.25"
+
     port:
       type: string
       title: HTTP Port
-      description: Port the service listens on
       pattern: "^[0-9]+$"
+      ui:options:
+        placeholder: "8080"
+
     private:
       type: boolean
       title: Private Repository
-      description: Whether the repository should be private
+
+    enableCI:
+      type: boolean
+      title: Enable GitHub Actions CI
+
+    registerCatalog:
+      type: boolean
+      title: Register in Shoehorn Catalog
+      x-dependency:
+        condition: name != null
+
+    team:
+      type: string
+      title: Owning Team (catalog)
+      description: Team slug for catalog ownership
+      x-dependency:
+        condition: registerCatalog == true
+      ui:options:
+        placeholder: platform-team
 
 defaults:
-  goVersion: "1.23"
+  goVersion: "1.24"
   port: "8080"
   private: true
+  enableCI: true
+  registerCatalog: false
 
 actions:
   - action: scaffold.go.service
     label: Scaffold Go Service
-    description: Create a new Go HTTP service with standard project structure
+    description: Creates a Go HTTP service repository with all scaffolding
     primary: true
 
 steps:
+  # Step 1: Create the repository
   - id: create-repo
     name: Create GitHub repository
     action: github.repo.create
     inputs:
-      owner: "${{ parameters.owner }}"
-      name: "${{ parameters.name }}"
-      description: "${{ parameters.description }}"
-      private: "${{ parameters.private }}"
+      name: "${{ inputs.name }}"
+      owner: "${{ inputs.owner }}"
+      description: "${{ inputs.description }}"
+      private: "${{ inputs.private }}"
+      auto_init: false
+      delete_branch_on_merge: true
+      allow_squash_merge: true
+      allow_merge_commit: false
+      allow_rebase_merge: false
+      custom_properties:
+        created-by: "${{ context.createdBy }}"
+        managed-by: "shoehorn"
 
-  - id: add-readme
-    name: Add README.md
-    action: github.file.create
-    depends_on:
-      - create-repo
-    inputs:
-      owner: "${{ parameters.owner }}"
-      repo: "${{ parameters.name }}"
-      path: README.md
-      content: |
-        # ${{ parameters.name }}
-
-        ${{ parameters.description }}
-
-        ## Getting Started
-
-        ```bash
-        go build -o ${{ parameters.name }} .
-        ./${{ parameters.name }}
-        ```
-
-        The service will start on port ${{ parameters.port }}.
-
-        ## Development
-
-        ```bash
-        make build
-        make test
-        make lint
-        make docker-build
-        ```
-
-        ## Docker
-
-        ```bash
-        docker build -t ${{ parameters.name }} .
-        docker run -p ${{ parameters.port }}:${{ parameters.port }} ${{ parameters.name }}
-        ```
-
+  # Step 2: Add main.go
   - id: add-main
     name: Add main.go
     action: github.file.create
-    depends_on:
-      - create-repo
     inputs:
-      owner: "${{ parameters.owner }}"
-      repo: "${{ parameters.name }}"
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
       path: main.go
+      message: "feat: add main.go"
       content: |
         package main
 
         import (
-        	"encoding/json"
+        	"fmt"
         	"log"
         	"net/http"
         	"os"
@@ -141,156 +133,189 @@ steps:
         func main() {
         	port := os.Getenv("PORT")
         	if port == "" {
-        		port = "${{ parameters.port }}"
+        		port = "${{ inputs.port }}"
         	}
 
-        	mux := http.NewServeMux()
-        	mux.HandleFunc("/health", healthHandler)
-        	mux.HandleFunc("/", rootHandler)
-
-        	log.Printf("Starting ${{ parameters.name }} on :%s", port)
-        	if err := http.ListenAndServe(":"+port, mux); err != nil {
-        		log.Fatalf("Server failed: %v", err)
-        	}
-        }
-
-        func healthHandler(w http.ResponseWriter, r *http.Request) {
-        	w.Header().Set("Content-Type", "application/json")
-        	json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
-        }
-
-        func rootHandler(w http.ResponseWriter, r *http.Request) {
-        	w.Header().Set("Content-Type", "application/json")
-        	json.NewEncoder(w).Encode(map[string]string{
-        		"service": "${{ parameters.name }}",
-        		"version": "0.1.0",
+        	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+        		w.Header().Set("Content-Type", "application/json")
+        		fmt.Fprintf(w, `{"status":"healthy","service":"${{ inputs.name }}"}`)
         	})
+
+        	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+        		fmt.Fprintf(w, "Hello from ${{ inputs.name }}")
+        	})
+
+        	log.Printf("Starting ${{ inputs.name }} on :%s", port)
+        	log.Fatal(http.ListenAndServe(":"+port, nil))
         }
 
+  # Step 3: Add go.mod
   - id: add-gomod
     name: Add go.mod
     action: github.file.create
-    depends_on:
-      - create-repo
     inputs:
-      owner: "${{ parameters.owner }}"
-      repo: "${{ parameters.name }}"
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
       path: go.mod
+      message: "feat: add go.mod"
       content: |
-        module github.com/${{ parameters.owner }}/${{ parameters.name }}
+        module github.com/${{ inputs.owner }}/${{ inputs.name }}
 
-        go ${{ parameters.goVersion }}
+        go ${{ inputs.goVersion }}
 
+  # Step 4: Add Dockerfile
   - id: add-dockerfile
     name: Add Dockerfile
     action: github.file.create
-    depends_on:
-      - create-repo
     inputs:
-      owner: "${{ parameters.owner }}"
-      repo: "${{ parameters.name }}"
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
       path: Dockerfile
+      message: "feat: add Dockerfile"
       content: |
-        FROM golang:${{ parameters.goVersion }}-alpine AS builder
-
+        FROM golang:${{ inputs.goVersion }}-alpine AS builder
         WORKDIR /app
         COPY go.mod ./
-        RUN go mod download
-        COPY . .
-        RUN CGO_ENABLED=0 GOOS=linux go build -o /app/${{ parameters.name }} .
+        COPY *.go ./
+        RUN CGO_ENABLED=0 GOOS=linux go build -o /${{ inputs.name }} .
 
-        FROM alpine:3.19
-        RUN apk --no-cache add ca-certificates
-        WORKDIR /app
-        COPY --from=builder /app/${{ parameters.name }} .
+        FROM gcr.io/distroless/static-debian12:nonroot
+        COPY --from=builder /${{ inputs.name }} /
+        EXPOSE ${{ inputs.port }}
+        USER nonroot:nonroot
+        ENTRYPOINT ["/${{ inputs.name }}"]
 
-        EXPOSE ${{ parameters.port }}
-        ENTRYPOINT ["./${{ parameters.name }}"]
-
-  - id: add-makefile
-    name: Add Makefile
-    action: github.file.create
-    depends_on:
-      - create-repo
-    inputs:
-      owner: "${{ parameters.owner }}"
-      repo: "${{ parameters.name }}"
-      path: Makefile
-      content: |
-        .PHONY: build test lint clean docker-build docker-run
-
-        APP_NAME := ${{ parameters.name }}
-        PORT := ${{ parameters.port }}
-
-        build:
-        	go build -o $(APP_NAME) .
-
-        test:
-        	go test ./... -v -cover
-
-        lint:
-        	go vet ./...
-        	golangci-lint run
-
-        clean:
-        	rm -f $(APP_NAME)
-
-        docker-build:
-        	docker build -t $(APP_NAME) .
-
-        docker-run:
-        	docker run -p $(PORT):$(PORT) $(APP_NAME)
-
+  # Step 5: Add .gitignore
   - id: add-gitignore
     name: Add .gitignore
     action: github.file.create
-    depends_on:
-      - create-repo
     inputs:
-      owner: "${{ parameters.owner }}"
-      repo: "${{ parameters.name }}"
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
       path: .gitignore
+      message: "chore: add .gitignore"
       content: |
         # Binaries
-        ${{ parameters.name }}
         *.exe
+        *.exe~
         *.dll
         *.so
         *.dylib
+        /${{ inputs.name }}
 
         # Test
         *.test
         *.out
-        coverage.html
+        coverage.out
 
         # IDE
         .idea/
         .vscode/
         *.swp
-        *.swo
 
         # OS
         .DS_Store
         Thumbs.db
 
-        # Docker
-        .docker/
+  # Step 6: Add README
+  - id: add-readme
+    name: Add README
+    action: github.file.create
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
+      path: README.md
+      message: "docs: add README"
+      content: |
+        # ${{ inputs.name }}
 
+        ${{ inputs.description }}
+
+        Created by ${{ context.createdBy }} via [Shoehorn Forge](https://shoehorn.dev).
+
+        ## Development
+
+        ```bash
+        go run main.go
+        ```
+
+        ## Docker
+
+        ```bash
+        docker build -t ${{ inputs.name }} .
+        docker run -p ${{ inputs.port }}:${{ inputs.port }} ${{ inputs.name }}
+        ```
+
+        ## Health check
+
+        ```bash
+        curl http://localhost:${{ inputs.port }}/health
+        ```
+
+  # Step 7: Add CI pipeline (conditional)
+  - id: add-ci
+    name: Add GitHub Actions CI
+    action: github.file.create
+    if: "${{ inputs.enableCI }}"
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
+      path: .github/workflows/ci.yaml
+      message: "ci: add GitHub Actions workflow"
+      content: |
+        name: CI
+        on:
+          push:
+            branches: [main]
+          pull_request:
+            branches: [main]
+        jobs:
+          build:
+            runs-on: ubuntu-latest
+            steps:
+              - uses: actions/checkout@v4
+              - uses: actions/setup-go@v5
+                with:
+                  go-version: "${{ inputs.goVersion }}"
+              - run: go build ./...
+              - run: go test -race ./...
+              - run: go vet ./...
+
+  # Step 8: Set topics
   - id: set-topics
     name: Set repository topics
     action: github.topics.set
-    depends_on:
-      - create-repo
     inputs:
-      owner: "${{ parameters.owner }}"
-      repo: "${{ parameters.name }}"
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
       topics:
         - golang
         - http-service
         - microservice
-        - shoehorn
+        - shoehorn-managed
+        - docker
+
+  # Step 9: Register in catalog (conditional)
+  - id: register-entity
+    name: Register in Shoehorn catalog
+    action: catalog.entity.register
+    if: "${{ inputs.registerCatalog }}"
+    inputs:
+      service_id: "${{ inputs.name }}"
+      name: "${{ inputs.name }}"
+      type: service
+      description: "${{ inputs.description }}"
+      lifecycle: experimental
+      owner: "${{ inputs.team }}"
+      tags:
+        - golang
+        - shoehorn-managed
+      links:
+        - name: GitHub
+          url: "${{ steps.create-repo.output.html_url }}"
+          icon: GitHub
 
 output:
   links:
-    - title: View Repository
+    - title: Repository
       url: "${{ steps.create-repo.output.html_url }}"

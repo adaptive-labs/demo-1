@@ -1,0 +1,83 @@
+version: "1.0.0"
+
+metadata:
+  name: create-empty-repo-test-v1
+  displayName: Create Empty Repository Test V1
+  description: Create a new empty GitHub repository with standard settings
+  author: shoehorn
+  icon: git-branch
+  category: repository
+  tags:
+    - github
+    - repository
+
+inputs:
+  type: object
+  required:
+    - name
+    - owner
+  properties:
+    name:
+      type: string
+      title: Repository Name
+      pattern: "^[a-zA-Z0-9._-]+$"
+      minLength: 1
+      maxLength: 100
+      ui:options:
+        placeholder: my-repo
+    owner:
+      type: string
+      title: GitHub Organization
+    description:
+      type: string
+      title: Description
+    private:
+      type: boolean
+      title: Private Repository
+    license:
+      type: string
+      title: License
+      enum:
+        - mit
+        - apache-2.0
+        - gpl-3.0
+        - none
+
+defaults:
+  private: true
+  license: mit
+
+actions:
+  - action: github.repo.create
+    label: Create Repository
+    primary: true
+
+steps:
+  - id: create-repo
+    name: Create GitHub repository
+    action: github.repo.create
+    inputs:
+      name: "${{ inputs.name }}"
+      owner: "${{ inputs.owner }}"
+      description: "${{ inputs.description }}"
+      private: "${{ inputs.private }}"
+      license_template: "${{ inputs.license }}"
+      auto_init: true
+      delete_branch_on_merge: true
+      custom_properties:
+        created-by: "${{ context.createdBy }}"
+        managed-by: "shoehorn"
+
+  - id: set-topics
+    name: Set topics
+    action: github.topics.set
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
+      topics:
+        - shoehorn-managed
+
+output:
+  links:
+    - title: Repository
+      url: "${{ steps.create-repo.output.html_url }}"
