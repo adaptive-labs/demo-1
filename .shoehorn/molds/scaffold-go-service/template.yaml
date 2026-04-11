@@ -45,9 +45,7 @@ inputs:
       type: string
       title: Go Version
       enum:
-        - "1.23"
-        - "1.24"
-        - "1.25"
+        - "1.26"
 
     port:
       type: string
@@ -78,13 +76,23 @@ inputs:
         condition: registerCatalog == true
       ui:options:
         source: catalog:teams
-        placeholder: platform-team
+        placeholder: Select a team
+
+      users:
+        type: string
+        title: Stakeholder
+        description: Assigned Stakeholder
+        x-dependency:
+          condition: registerCatalog == true
+        ui:options:
+          source: catalog:users
+          placeholder: Select a user
 
 defaults:
-  goVersion: "1.24"
+  goVersion: "1.26"
   port: "8080"
   private: true
-  enableCI: true
+  enableCI: false
   registerCatalog: false
 
 actions:
