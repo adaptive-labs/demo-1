@@ -208,21 +208,7 @@ steps:
       repo: "${{ inputs.name }}"
       path: .gitignore
       message: "chore: add .gitignore"
-      content: |
-        # Binaries
-        bin/
-        *.exe
-        *.test
-        coverage.out
-
-        # IDE
-        .idea/
-        .vscode/
-        *.swp
-
-        # OS
-        .DS_Store
-        Thumbs.db
+      template_path: ./skeleton/.gitignore.tmpl
 
   - id: add-readme
     name: Add README
@@ -255,24 +241,8 @@ steps:
       repo: "${{ inputs.name }}"
       path: .github/workflows/ci.yaml
       message: "ci: add GitHub Actions workflow"
-      content: |
-        name: CI
-        on:
-          push:
-            branches: [main]
-          pull_request:
-            branches: [main]
-        jobs:
-          build:
-            runs-on: ubuntu-latest
-            steps:
-              - uses: actions/checkout@v4
-              - uses: actions/setup-go@v5
-                with:
-                  go-version: "${{ inputs.goVersion }}"
-              - run: go build ./...
-              - run: go test -race ./...
-              - run: go vet ./...
+      template_path: ./skeleton/.github/workflows/build.yaml.tmpl
+      template_values: *goServiceTemplateValues
 
   - id: set-topics
     name: Set repository topics
