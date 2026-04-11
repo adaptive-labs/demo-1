@@ -1,0 +1,38 @@
+# {{.serviceName}}
+
+{{.description}}
+
+## Owner
+
+{{.owner}}
+
+## Features
+
+- HTTP server on port {{.httpPort}}
+- Structured logging with Zap
+- Configuration via environment variables
+- Health and readiness endpoints
+- Prometheus metrics
+- Docker support
+
+## Development
+
+```bash
+make run
+make test
+```
+
+## Docker
+
+```bash
+make docker
+make docker-run
+```
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Health check |
+| GET | `/ready` | Readiness check |
+| GET | `/metrics` | Prometheus metrics |

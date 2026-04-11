@@ -1,0 +1,30 @@
+.PHONY: build run test lint clean docker
+
+APP := {{.serviceName}}
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+LDFLAGS := -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
+
+build:
+	go build $(LDFLAGS) -o bin/$(APP) ./cmd/$(APP)
+
+run:
+	go run ./cmd/$(APP)
+
+test:
+	go test -v -race -cover ./...
+
+lint:
+	golangci-lint run ./...
+
+fmt:
+	go fmt ./...
+
+clean:
+	rm -rf bin/ dist/
+
+docker:
+	docker build --build-arg VERSION=$(VERSION) --build-arg BUILD_TIME=$(BUILD_TIME) -t $(APP):$(VERSION) .
+
+docker-run:
+	docker run -p {{.httpPort}}:{{.httpPort}} $(APP):$(VERSION)

@@ -1,4 +1,4 @@
-version: "1.0.1"
+version: "2.0.1"
 
 metadata:
   name: scaffold-go-service-test-v1
@@ -94,7 +94,6 @@ actions:
     primary: true
 
 steps:
-  # Step 1: Create the repository
   - id: create-repo
     name: Create GitHub repository
     action: github.repo.create
@@ -112,45 +111,51 @@ steps:
         created-by: "${{ context.createdBy }}"
         managed-by: "shoehorn"
 
-  # Step 2: Add main.go
   - id: add-main
     name: Add main.go
     action: github.file.create
     inputs:
       owner: "${{ inputs.owner }}"
       repo: "${{ inputs.name }}"
-      path: main.go
+      path: cmd/${{ inputs.name }}/main.go
       message: "feat: add main.go"
-      content: |
-        package main
+      template_path: ./skeleton/cmd/service/main.go.tmpl
+      template_values: &goServiceTemplateValues
+        serviceName: "${{ inputs.name }}"
+        modulePath: "github.com/${{ inputs.owner }}/${{ inputs.name }}"
+        goVersion: "${{ inputs.goVersion }}"
+        httpPort: "${{ inputs.port }}"
+        description: "${{ inputs.description }}"
+        owner: "${{ inputs.team }}"
+        Steps:
+          generate_service_metadata:
+            Outputs:
+              serviceType: service
+              serviceVersion: "0.1.0"
+              createdAt: "${{ context.runId }}"
 
-        import (
-        	"fmt"
-        	"log"
-        	"net/http"
-        	"os"
-        )
+  - id: add-config
+    name: Add config package
+    action: github.file.create
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
+      path: internal/config/config.go
+      message: "feat: add config package"
+      template_path: ./skeleton/internal/config/config.go.tmpl
+      template_values: *goServiceTemplateValues
 
-        func main() {
-        	port := os.Getenv("PORT")
-        	if port == "" {
-        		port = "${{ inputs.port }}"
-        	}
+  - id: add-server
+    name: Add HTTP server package
+    action: github.file.create
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
+      path: internal/server/server.go
+      message: "feat: add HTTP server package"
+      template_path: ./skeleton/internal/server/server.go.tmpl
+      template_values: *goServiceTemplateValues
 
-        	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-        		w.Header().Set("Content-Type", "application/json")
-        		fmt.Fprintf(w, `{"status":"healthy","service":"${{ inputs.name }}"}`)
-        	})
-
-        	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-        		fmt.Fprintf(w, "Hello from ${{ inputs.name }}")
-        	})
-
-        	log.Printf("Starting ${{ inputs.name }} on :%s", port)
-        	log.Fatal(http.ListenAndServe(":"+port, nil))
-        }
-
-  # Step 3: Add go.mod
   - id: add-gomod
     name: Add go.mod
     action: github.file.create
@@ -159,12 +164,20 @@ steps:
       repo: "${{ inputs.name }}"
       path: go.mod
       message: "feat: add go.mod"
-      content: |
-        module github.com/${{ inputs.owner }}/${{ inputs.name }}
+      template_path: ./skeleton/go.mod.tmpl
+      template_values: *goServiceTemplateValues
 
-        go ${{ inputs.goVersion }}
+  - id: add-gosum
+    name: Add go.sum
+    action: github.file.create
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
+      path: go.sum
+      message: "feat: add go.sum"
+      template_path: ./skeleton/go.sum.tmpl
+      template_values: *goServiceTemplateValues
 
-  # Step 4: Add Dockerfile
   - id: add-dockerfile
     name: Add Dockerfile
     action: github.file.create
@@ -173,20 +186,20 @@ steps:
       repo: "${{ inputs.name }}"
       path: Dockerfile
       message: "feat: add Dockerfile"
-      content: |
-        FROM golang:${{ inputs.goVersion }}-alpine AS builder
-        WORKDIR /app
-        COPY go.mod ./
-        COPY *.go ./
-        RUN CGO_ENABLED=0 GOOS=linux go build -o /${{ inputs.name }} .
+      template_path: ./skeleton/Dockerfile.tmpl
+      template_values: *goServiceTemplateValues
 
-        FROM gcr.io/distroless/static-debian12:nonroot
-        COPY --from=builder /${{ inputs.name }} /
-        EXPOSE ${{ inputs.port }}
-        USER nonroot:nonroot
-        ENTRYPOINT ["/${{ inputs.name }}"]
+  - id: add-makefile
+    name: Add Makefile
+    action: github.file.create
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
+      path: Makefile
+      message: "build: add Makefile"
+      template_path: ./skeleton/Makefile.tmpl
+      template_values: *goServiceTemplateValues
 
-  # Step 5: Add .gitignore
   - id: add-gitignore
     name: Add .gitignore
     action: github.file.create
@@ -197,16 +210,9 @@ steps:
       message: "chore: add .gitignore"
       content: |
         # Binaries
+        bin/
         *.exe
-        *.exe~
-        *.dll
-        *.so
-        *.dylib
-        /${{ inputs.name }}
-
-        # Test
         *.test
-        *.out
         coverage.out
 
         # IDE
@@ -218,7 +224,6 @@ steps:
         .DS_Store
         Thumbs.db
 
-  # Step 6: Add README
   - id: add-readme
     name: Add README
     action: github.file.create
@@ -227,33 +232,20 @@ steps:
       repo: "${{ inputs.name }}"
       path: README.md
       message: "docs: add README"
-      content: |
-        # ${{ inputs.name }}
+      template_path: ./skeleton/README.md.tmpl
+      template_values: *goServiceTemplateValues
 
-        ${{ inputs.description }}
+  - id: add-k8s-deployment
+    name: Add Kubernetes deployment
+    action: github.file.create
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
+      path: deployments/k8s/deployment.yaml
+      message: "deploy: add Kubernetes deployment"
+      template_path: ./skeleton/deployments/k8s/deployment.yaml.tmpl
+      template_values: *goServiceTemplateValues
 
-        Created by ${{ context.createdBy }} via [Shoehorn Forge](https://shoehorn.dev).
-
-        ## Development
-
-        ```bash
-        go run main.go
-        ```
-
-        ## Docker
-
-        ```bash
-        docker build -t ${{ inputs.name }} .
-        docker run -p ${{ inputs.port }}:${{ inputs.port }} ${{ inputs.name }}
-        ```
-
-        ## Health check
-
-        ```bash
-        curl http://localhost:${{ inputs.port }}/health
-        ```
-
-  # Step 7: Add CI pipeline (conditional)
   - id: add-ci
     name: Add GitHub Actions CI
     action: github.file.create
@@ -282,7 +274,6 @@ steps:
               - run: go test -race ./...
               - run: go vet ./...
 
-  # Step 8: Set topics
   - id: set-topics
     name: Set repository topics
     action: github.topics.set
@@ -296,7 +287,6 @@ steps:
         - shoehorn-managed
         - docker
 
-  # Step 9: Register in catalog (conditional)
   - id: register-entity
     name: Register in Shoehorn catalog
     action: catalog.entity.register

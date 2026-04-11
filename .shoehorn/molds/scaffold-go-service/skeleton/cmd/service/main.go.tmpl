@@ -1,0 +1,57 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"{{.modulePath}}/internal/config"
+	"{{.modulePath}}/internal/server"
+	"go.uber.org/zap"
+)
+
+var (
+	Version   = "{{.Steps.generate_service_metadata.Outputs.serviceVersion}}"
+	BuildTime = "{{.Steps.generate_service_metadata.Outputs.createdAt}}"
+)
+
+func main() {
+	logger, _ := zap.NewProduction()
+	if os.Getenv("ENV") == "development" {
+		logger, _ = zap.NewDevelopment()
+	}
+	defer logger.Sync()
+
+	logger.Info("starting {{.serviceName}}",
+		zap.String("version", Version),
+		zap.String("build_time", BuildTime),
+	)
+
+	cfg := config.Load()
+	srv := server.New(cfg, logger)
+
+	go func() {
+		addr := fmt.Sprintf(":%d", cfg.Port)
+		logger.Info("server starting", zap.String("address", addr))
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatal("server failed", zap.Error(err))
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.Fatal("server forced to shutdown", zap.Error(err))
+	}
+
+	logger.Info("server stopped")
+}
