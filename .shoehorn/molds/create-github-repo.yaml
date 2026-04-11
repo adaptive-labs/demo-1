@@ -1,9 +1,9 @@
 version: "1.0.0"
 
 metadata:
-  name: create-empty-github-repo
+  name: create-github-repo
   displayName: Create Empty GitHub Repo
-  description: Creates a new empty GitHub repository with minimal configuration
+  description: Creates a new GitHub repository with minimal configuration
   author: shoehorn
   icon: git-branch
   category: repository

@@ -1,4 +1,4 @@
-version: "2.0.2"
+version: "2.0.4"
 
 metadata:
   name: scaffold-go-service-test-v1
@@ -31,8 +31,8 @@ inputs:
 
     owner:
       type: string
-      title: GitHub Organization
-      description: GitHub org where the repo will be created
+      title: Repository Owner
+      description: Provider-qualified owner or workspace from Forge integration settings
 
     description:
       type: string
@@ -78,15 +78,15 @@ inputs:
         source: catalog:teams
         placeholder: Select a team
 
-      users:
-        type: string
-        title: Stakeholder
-        description: Assigned Stakeholder
-        x-dependency:
-          condition: registerCatalog == true
-        ui:options:
-          source: catalog:users
-          placeholder: Select a user
+    users:
+      type: string
+      title: Stakeholder
+      description: Assigned Stakeholder
+      x-dependency:
+        condition: registerCatalog == true
+      ui:options:
+        source: catalog:users
+        placeholder: Select a user
 
 defaults:
   goVersion: "1.26"
@@ -119,126 +119,32 @@ steps:
         created-by: "${{ context.createdBy }}"
         managed-by: "shoehorn"
 
-  - id: add-main
-    name: Add main.go
-    action: github.file.create
+  - id: add-service-files
+    name: Add service skeleton files
+    action: github.template.apply
     inputs:
       owner: "${{ inputs.owner }}"
       repo: "${{ inputs.name }}"
-      path: cmd/${{ inputs.name }}/main.go
-      message: "feat: add main.go"
-      template_path: ./skeleton/cmd/service/main.go.tmpl
+      source_path: ./skeleton
+      message: "feat: add service skeleton"
       template_values: &goServiceTemplateValues
         serviceName: "${{ inputs.name }}"
-        modulePath: "github.com/${{ inputs.owner }}/${{ inputs.name }}"
         goVersion: "${{ inputs.goVersion }}"
         httpPort: "${{ inputs.port }}"
         description: "${{ inputs.description }}"
         owner: "${{ inputs.team }}"
-        Steps:
-          generate_service_metadata:
-            Outputs:
-              serviceType: service
-              serviceVersion: "0.1.0"
-              createdAt: "${{ context.runId }}"
-
-  - id: add-config
-    name: Add config package
-    action: github.file.create
-    inputs:
-      owner: "${{ inputs.owner }}"
-      repo: "${{ inputs.name }}"
-      path: internal/config/config.go
-      message: "feat: add config package"
-      template_path: ./skeleton/internal/config/config.go.tmpl
-      template_values: *goServiceTemplateValues
-
-  - id: add-server
-    name: Add HTTP server package
-    action: github.file.create
-    inputs:
-      owner: "${{ inputs.owner }}"
-      repo: "${{ inputs.name }}"
-      path: internal/server/server.go
-      message: "feat: add HTTP server package"
-      template_path: ./skeleton/internal/server/server.go.tmpl
-      template_values: *goServiceTemplateValues
-
-  - id: add-gomod
-    name: Add go.mod
-    action: github.file.create
-    inputs:
-      owner: "${{ inputs.owner }}"
-      repo: "${{ inputs.name }}"
-      path: go.mod
-      message: "feat: add go.mod"
-      template_path: ./skeleton/go.mod.tmpl
-      template_values: *goServiceTemplateValues
-
-  - id: add-gosum
-    name: Add go.sum
-    action: github.file.create
-    inputs:
-      owner: "${{ inputs.owner }}"
-      repo: "${{ inputs.name }}"
-      path: go.sum
-      message: "feat: add go.sum"
-      template_path: ./skeleton/go.sum.tmpl
-      template_values: *goServiceTemplateValues
-
-  - id: add-dockerfile
-    name: Add Dockerfile
-    action: github.file.create
-    inputs:
-      owner: "${{ inputs.owner }}"
-      repo: "${{ inputs.name }}"
-      path: Dockerfile
-      message: "feat: add Dockerfile"
-      template_path: ./skeleton/Dockerfile.tmpl
-      template_values: *goServiceTemplateValues
-
-  - id: add-makefile
-    name: Add Makefile
-    action: github.file.create
-    inputs:
-      owner: "${{ inputs.owner }}"
-      repo: "${{ inputs.name }}"
-      path: Makefile
-      message: "build: add Makefile"
-      template_path: ./skeleton/Makefile.tmpl
-      template_values: *goServiceTemplateValues
-
-  - id: add-gitignore
-    name: Add .gitignore
-    action: github.file.create
-    inputs:
-      owner: "${{ inputs.owner }}"
-      repo: "${{ inputs.name }}"
-      path: .gitignore
-      message: "chore: add .gitignore"
-      template_path: ./skeleton/.gitignore.tmpl
-
-  - id: add-readme
-    name: Add README
-    action: github.file.create
-    inputs:
-      owner: "${{ inputs.owner }}"
-      repo: "${{ inputs.name }}"
-      path: README.md
-      message: "docs: add README"
-      template_path: ./skeleton/README.md.tmpl
-      template_values: *goServiceTemplateValues
-
-  - id: add-k8s-deployment
-    name: Add Kubernetes deployment
-    action: github.file.create
-    inputs:
-      owner: "${{ inputs.owner }}"
-      repo: "${{ inputs.name }}"
-      path: deployments/k8s/deployment.yaml
-      message: "deploy: add Kubernetes deployment"
-      template_path: ./skeleton/deployments/k8s/deployment.yaml.tmpl
-      template_values: *goServiceTemplateValues
+        serviceVersion: "0.1.0"
+        buildId: "${{ context.runId }}"
+      include:
+        - cmd/**
+        - internal/**
+        - go.mod.tmpl
+        - go.sum.tmpl
+        - Dockerfile.tmpl
+        - Makefile.tmpl
+        - README.md.tmpl
+        - deployments/**
+        - .gitignore.tmpl
 
   - id: add-ci
     name: Add GitHub Actions CI
@@ -249,7 +155,7 @@ steps:
       repo: "${{ inputs.name }}"
       path: .github/workflows/ci.yaml
       message: "ci: add GitHub Actions workflow"
-      template_path: ./skeleton/.github/workflows/build.yaml.tmpl
+      template_path: ./skeleton/.github/workflows/build.yml.tmpl
       template_values: *goServiceTemplateValues
 
   - id: set-topics

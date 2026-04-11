@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	Version   = "{{.Steps.generate_service_metadata.Outputs.serviceVersion}}"
-	BuildTime = "{{.Steps.generate_service_metadata.Outputs.createdAt}}"
+	Version = "{{.serviceVersion}}"
+	BuildID = "{{.buildId}}"
 )
 
 func main() {
@@ -28,7 +28,7 @@ func main() {
 
 	logger.Info("starting {{.serviceName}}",
 		zap.String("version", Version),
-		zap.String("build_time", BuildTime),
+		zap.String("build_id", BuildID),
 	)
 
 	cfg := config.Load()

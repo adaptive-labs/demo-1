@@ -97,11 +97,6 @@ approvalFlow:
       approvers:
         - admin@shoehorn.dev
       required_count: 1
-    - name: Platform Review
-      description: Platform team must approve Kubernetes resource allocation
-      approvers:
-        - admin@shoehorn.dev
-      required_count: 1
 
 actions:
   - action: provision.production.service
