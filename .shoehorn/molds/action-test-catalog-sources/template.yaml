@@ -3,7 +3,7 @@ version: "1.0.0"
 metadata:
   name: action-test-catalog-sources
   displayName: Action Test - Catalog Selectors
-  description: Exercises every catalog-backed Forge form source.
+  description: Exercises the supported catalog-backed Forge form sources.
   author: shoehorn
   icon: list-checks
   category: testing
@@ -52,17 +52,6 @@ inputs:
           type: service
           limit: 50
 
-    component:
-      type: string
-      title: Component
-      description: Tests catalog:components, the entity-source alias.
-      ui:options:
-        source: catalog:components
-        placeholder: Select a component
-        filters:
-          type: service
-          limit: 50
-
     repository:
       type: string
       title: Repository
@@ -103,7 +92,7 @@ steps:
       service_id: "${{ inputs.serviceId }}"
       name: "${{ inputs.serviceId }}"
       type: service
-      description: "Catalog selector test. User=${{ inputs.user }}, group=${{ inputs.group }}, entity=${{ inputs.entity }}, component=${{ inputs.component }}, repository=${{ inputs.repository }}"
+      description: "Catalog selector test. User=${{ inputs.user }}, group=${{ inputs.group }}, entity=${{ inputs.entity }}, repository=${{ inputs.repository }}"
       lifecycle: experimental
       owner: "${{ inputs.team }}"
       tags:
