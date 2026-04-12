@@ -1,0 +1,80 @@
+version: "1.0.0"
+
+metadata:
+  name: action-test-github-pr
+  displayName: Action Test - GitHub Pull Request
+  description: Exercises pull request creation against an existing repository branch.
+  author: shoehorn
+  icon: git-pull-request
+  category: testing
+  tags:
+    - forge
+    - action-test
+    - github
+    - pull-request
+
+inputs:
+  type: object
+  required:
+    - owner
+    - repo
+    - head
+    - title
+  properties:
+    owner:
+      type: string
+      title: Repository Owner
+      description: Provider-qualified owner or organization, for example github.com/adaptive-labs.
+
+    repo:
+      type: string
+      title: Repository Name
+      description: Existing repository where the pull request should be opened.
+
+    head:
+      type: string
+      title: Head Branch
+      description: Existing branch with changes. Use a branch name in the same repository.
+      ui:options:
+        placeholder: action-test-branch
+
+    base:
+      type: string
+      title: Base Branch
+      description: Branch to merge into.
+
+    title:
+      type: string
+      title: Pull Request Title
+
+    body:
+      type: string
+      title: Pull Request Body
+
+defaults:
+  base: main
+  title: Forge action test pull request
+  body: Created by the Forge action test mold.
+
+actions:
+  - action: action.test.github.pr
+    label: Test GitHub Pull Request Action
+    description: Opens a pull request for an existing branch.
+    primary: true
+
+steps:
+  - id: create-pr
+    name: Create pull request
+    action: github.pr.create
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.repo }}"
+      title: "${{ inputs.title }}"
+      body: "${{ inputs.body }}"
+      head: "${{ inputs.head }}"
+      base: "${{ inputs.base }}"
+
+output:
+  links:
+    - title: Pull Request
+      url: "${{ steps.create-pr.output.html_url }}"

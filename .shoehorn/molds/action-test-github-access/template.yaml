@@ -1,0 +1,122 @@
+version: "1.0.0"
+
+metadata:
+  name: action-test-github-access
+  displayName: Action Test - GitHub Access
+  description: Exercises GitHub team and collaborator access actions against an existing repository.
+  author: shoehorn
+  icon: users
+  category: testing
+  tags:
+    - forge
+    - action-test
+    - github
+    - access
+
+inputs:
+  type: object
+  required:
+    - owner
+    - repo
+  properties:
+    owner:
+      type: string
+      title: Repository Owner
+      description: Provider-qualified owner or organization, for example github.com/adaptive-labs.
+
+    repo:
+      type: string
+      title: Repository Name
+      description: Existing repository to grant access to.
+
+    runDirectTeamTest:
+      type: boolean
+      title: Test direct GitHub team slug
+      description: Enables the github.team.add step that uses team_slug.
+
+    teamSlug:
+      type: string
+      title: GitHub Team Slug
+      description: Direct GitHub team slug used when the direct team test is enabled.
+      x-dependency:
+        condition: runDirectTeamTest == true
+
+    runCatalogTeamTest:
+      type: boolean
+      title: Test catalog team mapping
+      description: Enables the github.team.add step that resolves catalog_team.
+
+    catalogTeam:
+      type: string
+      title: Catalog Team
+      description: Catalog team used when the catalog team test is enabled.
+      x-dependency:
+        condition: runCatalogTeamTest == true
+      ui:options:
+        source: catalog:teams
+        placeholder: Select a team
+
+    runCollaboratorTest:
+      type: boolean
+      title: Test collaborator invite
+      description: Enables the github.collaborator.add step. This can invite a user to the repository.
+
+    collaboratorUsername:
+      type: string
+      title: GitHub Username
+      description: User to add when the collaborator test is enabled.
+      x-dependency:
+        condition: runCollaboratorTest == true
+
+    permission:
+      type: string
+      title: Permission
+      enum:
+        - pull
+        - triage
+        - push
+        - maintain
+        - admin
+
+defaults:
+  runDirectTeamTest: false
+  runCatalogTeamTest: false
+  runCollaboratorTest: false
+  permission: push
+
+actions:
+  - action: action.test.github.access
+    label: Test GitHub Access Actions
+    description: Adds team and collaborator access when the related checks are enabled.
+    primary: true
+
+steps:
+  - id: add-team-by-slug
+    name: Add GitHub team by slug
+    action: github.team.add
+    if: "${{ inputs.runDirectTeamTest }}"
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.repo }}"
+      team_slug: "${{ inputs.teamSlug }}"
+      permission: "${{ inputs.permission }}"
+
+  - id: add-team-from-catalog
+    name: Add GitHub team from catalog team
+    action: github.team.add
+    if: "${{ inputs.runCatalogTeamTest }}"
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.repo }}"
+      catalog_team: "${{ inputs.catalogTeam }}"
+      permission: "${{ inputs.permission }}"
+
+  - id: add-collaborator
+    name: Add collaborator
+    action: github.collaborator.add
+    if: "${{ inputs.runCollaboratorTest }}"
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.repo }}"
+      username: "${{ inputs.collaboratorUsername }}"
+      permission: "${{ inputs.permission }}"

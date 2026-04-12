@@ -1,0 +1,111 @@
+version: "1.0.0"
+
+metadata:
+  name: action-test-catalog-sources
+  displayName: Action Test - Catalog Selectors
+  description: Exercises every catalog-backed Forge form source.
+  author: shoehorn
+  icon: list-checks
+  category: testing
+  tags:
+    - forge
+    - action-test
+    - catalog
+    - selectors
+
+inputs:
+  type: object
+  required: []
+  properties:
+    team:
+      type: string
+      title: Team
+      description: Tests catalog:teams.
+      ui:options:
+        source: catalog:teams
+        placeholder: Select a team
+
+    user:
+      type: string
+      title: User
+      description: Tests catalog:users.
+      ui:options:
+        source: catalog:users
+        placeholder: Select a user
+
+    group:
+      type: string
+      title: Group
+      description: Tests catalog:groups.
+      ui:options:
+        source: catalog:groups
+        placeholder: Select a group
+
+    entity:
+      type: string
+      title: Entity
+      description: Tests catalog:entities.
+      ui:options:
+        source: catalog:entities
+        placeholder: Select an entity
+        filters:
+          type: service
+          limit: 50
+
+    component:
+      type: string
+      title: Component
+      description: Tests catalog:components, the entity-source alias.
+      ui:options:
+        source: catalog:components
+        placeholder: Select a component
+        filters:
+          type: service
+          limit: 50
+
+    repository:
+      type: string
+      title: Repository
+      description: Tests catalog:repositories.
+      ui:options:
+        source: catalog:repositories
+        placeholder: Select a repository
+
+    runRegistration:
+      type: boolean
+      title: Register selector test entity
+      description: Optionally writes a test entity to verify selected values flow into a step.
+
+    serviceId:
+      type: string
+      title: Test Entity ID
+      description: Entity ID used when registration is enabled.
+      pattern: "^action-test-catalog-[a-z0-9-]+$"
+      x-dependency:
+        condition: runRegistration == true
+
+defaults:
+  runRegistration: false
+  serviceId: action-test-catalog-selectors
+
+actions:
+  - action: action.test.catalog.sources
+    label: Test Catalog Selectors
+    description: Loads every catalog-backed selector and optionally registers a test entity.
+    primary: true
+
+steps:
+  - id: register-selector-entity
+    name: Register selector test entity
+    action: catalog.entity.register
+    if: "${{ inputs.runRegistration }}"
+    inputs:
+      service_id: "${{ inputs.serviceId }}"
+      name: "${{ inputs.serviceId }}"
+      type: service
+      description: "Catalog selector test. User=${{ inputs.user }}, group=${{ inputs.group }}, entity=${{ inputs.entity }}, component=${{ inputs.component }}, repository=${{ inputs.repository }}"
+      lifecycle: experimental
+      owner: "${{ inputs.team }}"
+      tags:
+        - forge-action-test
+        - catalog-selectors

@@ -1,0 +1,178 @@
+version: "1.0.0"
+
+metadata:
+  name: action-test-github-core
+  displayName: Action Test - GitHub Core and Catalog
+  description: Exercises repository create, repository update, file create, template apply, topics, and catalog registration.
+  author: shoehorn
+  icon: flask-conical
+  category: testing
+  tags:
+    - forge
+    - action-test
+    - github
+    - catalog
+
+inputs:
+  type: object
+  required:
+    - name
+    - owner
+    - team
+  properties:
+    name:
+      type: string
+      title: Test Repository Name
+      description: Repository created by this action test.
+      pattern: "^action-test-[a-z0-9-]+$"
+      minLength: 12
+      maxLength: 63
+      ui:options:
+        placeholder: action-test-core
+
+    owner:
+      type: string
+      title: Repository Owner
+      description: Provider-qualified owner or organization, for example github.com/adaptive-labs.
+
+    team:
+      type: string
+      title: Catalog Owner
+      description: Team used as the catalog entity owner.
+      ui:options:
+        source: catalog:teams
+        placeholder: Select a team
+
+    description:
+      type: string
+      title: Description
+      description: Description used for the repository and catalog entity.
+      ui:options:
+        placeholder: Forge action test repository
+
+    private:
+      type: boolean
+      title: Private Repository
+
+defaults:
+  name: action-test-core
+  description: Forge action test repository
+  private: true
+
+actions:
+  - action: action.test.github.core
+    label: Test GitHub Core Actions
+    description: Creates and updates a repository, writes files, applies templates, sets topics, and registers a catalog entity.
+    primary: true
+
+steps:
+  - id: create-repo
+    name: Create test repository
+    action: github.repo.create
+    inputs:
+      name: "${{ inputs.name }}"
+      owner: "${{ inputs.owner }}"
+      description: "${{ inputs.description }}"
+      private: "${{ inputs.private }}"
+      auto_init: true
+      delete_branch_on_merge: true
+      allow_squash_merge: true
+      allow_merge_commit: false
+      allow_rebase_merge: false
+      custom_properties:
+        created-by: "${{ context.createdBy }}"
+        managed-by: shoehorn
+        action-test: github-core
+      custom_properties_required: false
+
+  - id: update-repo
+    name: Update repository settings
+    action: github.repo.update
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
+      description: "Updated by Forge action test: ${{ inputs.description }}"
+      has_wiki: false
+      has_projects: false
+      delete_branch_on_merge: true
+      custom_properties:
+        managed-by: shoehorn
+        action-test: github-core-updated
+      custom_properties_required: false
+
+  - id: apply-template
+    name: Apply template directory
+    action: github.template.apply
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
+      source_path: ./skeleton
+      message: "test: apply action test template"
+      template_values: &actionTestTemplateValues
+        serviceName: "${{ inputs.name }}"
+        description: "${{ inputs.description }}"
+        owner: "${{ inputs.team }}"
+        createdBy: "${{ context.createdBy }}"
+        runId: "${{ context.runId }}"
+      include:
+        - generated/**
+
+  - id: add-inline-file
+    name: Add inline action test file
+    action: github.file.create
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
+      path: ACTION_TEST.md
+      message: "test: add inline action test file"
+      content: |
+        # Forge action test
+
+        Repository: ${{ inputs.name }}
+        Created by: ${{ context.createdBy }}
+        Run: ${{ context.runId }}
+
+  - id: add-template-file
+    name: Add single template file
+    action: github.file.create
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
+      path: generated/single-template-file.md
+      message: "test: add single template file"
+      template_path: ./skeleton/single-template-file.md.tmpl
+      template_values: *actionTestTemplateValues
+
+  - id: set-topics
+    name: Set repository topics
+    action: github.topics.set
+    inputs:
+      owner: "${{ inputs.owner }}"
+      repo: "${{ inputs.name }}"
+      topics:
+        - shoehorn
+        - forge-action-test
+        - github-core
+
+  - id: register-entity
+    name: Register catalog entity
+    action: catalog.entity.register
+    inputs:
+      service_id: "${{ inputs.name }}"
+      name: "${{ inputs.name }}"
+      type: service
+      description: "${{ inputs.description }}"
+      lifecycle: experimental
+      owner: "${{ inputs.team }}"
+      tags:
+        - forge-action-test
+        - github-core
+      links:
+        - name: Repository
+          url: "${{ steps.create-repo.output.html_url }}"
+          icon: GitHub
+
+output:
+  links:
+    - title: Repository
+      url: "${{ steps.create-repo.output.html_url }}"
