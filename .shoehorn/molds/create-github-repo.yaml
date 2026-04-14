@@ -5,7 +5,7 @@ metadata:
   displayName: Create Empty GitHub Repo - TEST
   description: Creates a new GitHub repository with minimal configuration
   author: shoehorn
-  icon: git-branch
+  icon: github
   category: repository
   tags:
     - github
