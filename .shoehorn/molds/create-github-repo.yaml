@@ -2,7 +2,7 @@ version: "1.0.1"
 
 metadata:
   name: create-github-repo
-  displayName: Create Empty GitHub Repo - TEST
+  displayName: Create Empty GitHub Repo - TEST - TEST
   description: Creates a new GitHub repository with minimal configuration
   author: shoehorn
   icon: github
