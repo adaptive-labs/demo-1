@@ -17,6 +17,15 @@ interfaces:
     baseUrl: https://api.adaptive-labs.example/notifications-api
     openapi: ./openapi.yaml
     version: 1.0.0
+relations:
+- type: depends_on
+  target: service:push-gateway
+- type: depends_on
+  target: service:email-service
+- type: depends_on
+  target: service:sms-gateway
+- type: depends_on
+  target: service:notification-prefs
 links:
 - name: Runbook
   url: ./docs/runbook.md
