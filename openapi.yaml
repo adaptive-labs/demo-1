@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info:
+  title: Notifications API API
+  version: 1.0.0
+  description: Central API for sending customer and driver notifications.
+servers:
+  - url: https://api.adaptive-labs.example/notifications-api
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200': { description: OK }
+  /notifications-api:
+    get:
+      summary: List notifications api resources
+      responses:
+        '200': { description: A list of resources }
+    post:
+      summary: Create a notifications resource
+      responses:
+        '201': { description: Created }

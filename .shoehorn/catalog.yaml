@@ -1,0 +1,24 @@
+schemaVersion: 1
+service:
+  id: notifications-api
+  name: Notifications API
+  type: api
+  tier: high
+  description: Central API for sending customer and driver notifications.
+lifecycle: production
+tags:
+- adaptive-labs
+- notifications
+owner:
+- type: team
+  id: notifications
+interfaces:
+  http:
+    baseUrl: https://api.adaptive-labs.example/notifications-api
+    openapi: ./openapi.yaml
+    version: 1.0.0
+links:
+- name: Runbook
+  url: ./docs/runbook.md
+- name: Onboarding
+  url: ./docs/onboarding.md
